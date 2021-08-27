@@ -16,13 +16,15 @@ const jccCert = new JccCert({
   token: "Token Name"
 });
 
-const content = Buffer.from("test", "utf-8");
+// hash上链存证
+const hashCert = await jccCert.saveHashCert("a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3");
+console.log("saved hash cert: ", hashCert);
 
-const cert = await jccCert.saveCert(content);
+// buffer上链存证
+const bufferCert = await jccCert.saveBufferCert(Buffer.from("test", "utf-8"));
+console.log("saved buffer cert: ", bufferCert);
 
-console.log("saved cert: ", cert);
-
-const isValid = await jccCert.checkCert(cert.cid, cert.txHash);
-
+// 校验存证hash
+const isValid = await jccCert.checkCert(bufferCert.cid, bufferCert.txHash);
 console.log("cert is valid: ", isValid);
 ```
