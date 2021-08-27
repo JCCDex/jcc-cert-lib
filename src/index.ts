@@ -95,8 +95,13 @@ export default class JccCert {
     let tx: any;
     for (const node of nodes) {
       try {
-        tx = await fetchTransaction(node, hash);
-        break;
+        const res = await fetchTransaction(node, hash);
+        if (!this.isSuccess(res)) {
+          console.log("transaction is failed: ", res, ", node is: ", node);
+        } else {
+          tx = res;
+          break;
+        }
       } catch (error) {
         console.log("fetch error: ", error.message, ", node is: ", node);
       }
