@@ -57,16 +57,8 @@ export default class JccCert {
     return tx?.result?.engine_result === "tesSUCCESS";
   }
 
-  public async saveCert(content: string | Buffer): Promise<ICert> {
-    let cHash;
-    if (typeof content === "string") {
-      cHash = content;
-    } else {
-      cHash = await hasha.async(content, { algorithm: "sha256" });
-    }
-
-    const memo = JSON.stringify({ cid: cHash });
-
+  protected async saveCert(cid: string): Promise<ICert> {
+    const memo = JSON.stringify({ cid });
     const tx = Tx.serializePayment(
       this.senderAddress,
       this.amount,
@@ -85,11 +77,42 @@ export default class JccCert {
       throw new Error(JSON.stringify(res));
     }
     return {
-      cid: cHash,
+      cid,
       txHash: res?.result?.tx_json?.hash
     };
   }
 
+  /**
+   * hash上链存证
+   *
+   * @param {string} hash
+   * @returns {Promise<ICert>}
+   * @memberof JccCert
+   */
+  public async saveHashCert(hash: string): Promise<ICert> {
+    return await this.saveCert(hash);
+  }
+
+  /**
+   * buffer上链存证
+   *
+   * @param {Buffer} buf
+   * @returns {Promise<ICert>}
+   * @memberof JccCert
+   */
+  public async saveBufferCert(buf: Buffer): Promise<ICert> {
+    const hash = await hasha.async(buf, { algorithm: "sha256" });
+    return await this.saveCert(hash);
+  }
+
+  /**
+   * 校验存证hash
+   *
+   * @param {string} cid 文件hash
+   * @param {string} hash 交易hash
+   * @returns {Promise<boolean>}
+   * @memberof JccCert
+   */
   public async checkCert(cid: string, hash: string): Promise<boolean> {
     const nodes = this.rpcNodes;
     let tx: any;
