@@ -1,7 +1,5 @@
-import fetch from "./fetch";
-import { Tx, sign } from "jcc_exchange";
-import { jtWallet } from "jcc_wallet";
-import { fetchSequence, fetchTransaction, submitTransaction } from "./rpc";
+import { ChainOption, Transaction } from "@jccdex/jingtum-lib";
+import fetch from "@jccdex/jingtum-lib/lib/fetch";
 const hasha = require("hasha");
 
 export interface CertOptions {
@@ -11,6 +9,7 @@ export interface CertOptions {
   amount: string;
   issuer?: string;
   nodes: string[];
+  chain: ChainOption | string;
 }
 
 export interface ICert {
@@ -18,23 +17,22 @@ export interface ICert {
   txHash: string;
 }
 
-export default class JccCert {
+export default class JccCert extends Transaction {
   private readonly senderSecret: string;
   private readonly senderAddress: string;
   private readonly receiverAddress: string;
   private readonly token: string;
   private readonly amount: string;
   private readonly issuer: string;
-  private readonly rpcNodes: string[];
 
   constructor(options: CertOptions) {
-    const { senderSecret, receiverAddress, token, amount, issuer, nodes } = options;
+    const { senderSecret, receiverAddress, token, amount, issuer, nodes, chain } = options;
+    super(chain, nodes);
     this.senderSecret = senderSecret;
-    this.senderAddress = jtWallet.getAddress(senderSecret);
+    this.senderAddress = this.getAddress(senderSecret);
     this.receiverAddress = receiverAddress;
     this.token = token;
     this.issuer = issuer || "jGa9J9TkqtBcUoHe2zqhVFFbgUVED6o9or";
-    this.rpcNodes = nodes;
     this.amount = amount;
   }
 
@@ -48,31 +46,22 @@ export default class JccCert {
     return buf.toString("utf8");
   }
 
-  protected getNode() {
-    const node = this.rpcNodes[Math.floor(Math.random() * this.rpcNodes.length)];
-    return node;
-  }
-
   protected isSuccess(tx) {
     return tx?.result?.engine_result === "tesSUCCESS";
   }
 
   protected async saveCert(cid: string): Promise<ICert> {
     const memo = JSON.stringify({ cid });
-    const tx = Tx.serializePayment(
-      this.senderAddress,
-      this.amount,
-      this.receiverAddress,
-      this.token,
-      memo,
-      this.issuer
-    );
-    const copyTx: IPayExchange = Object.assign({}, tx);
-    const rpcNode = this.getNode();
-    const sequence = await fetchSequence(rpcNode, this.senderAddress);
-    copyTx.Sequence = sequence;
-    const blob = sign(copyTx, this.senderSecret);
-    const res = await submitTransaction(rpcNode, blob);
+    const res = await this.payment({
+      secret: this.senderSecret,
+      address: this.senderAddress,
+      to: this.receiverAddress,
+      amount: this.amount,
+      token: this.token,
+      issuer: this.issuer,
+      memo
+    });
+
     if (!this.isSuccess(res)) {
       throw new Error(JSON.stringify(res));
     }
@@ -114,23 +103,7 @@ export default class JccCert {
    * @memberof JccCert
    */
   public async checkCert(cid: string, hash: string): Promise<boolean> {
-    const nodes = this.rpcNodes;
-    let tx: any;
-    for (const node of nodes) {
-      try {
-        const res = await fetchTransaction(node, hash);
-        const result = res?.result?.meta?.TransactionResult;
-        if (result === "tesSUCCESS") {
-          tx = res;
-          break;
-        } else {
-          console.log("transaction is failed: ", res, ", node is: ", node);
-        }
-      } catch (error) {
-        console.log("fetch error: ", error.message, ", node is: ", node);
-      }
-    }
-
+    const tx: any = await this.fetchTransaction(hash);
     const account = tx?.result?.Account;
     const to = tx?.result?.Destination;
     const memoData = tx?.result?.Memos?.[0]?.Memo?.MemoData;

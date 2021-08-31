@@ -13,7 +13,8 @@ const jccCert = new JccCert({
   receiverAddress: "Jingtum Address",
   nodes: rpcNodes,
   amount: "Amount Value",
-  token: "Token Name"
+  token: "Token Name",
+  chain: "Chain Name"
 });
 
 // hash上链存证
